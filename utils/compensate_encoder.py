@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -B
+#!/usr/bin/env python3 -B
 
 # Copyright 2024 mjbots Robotic Systems, LLC.  info@mjbots.com
 #

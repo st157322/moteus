@@ -1,0 +1,37 @@
+# docker tools
+
+This directory provides tools to build moteus using docker for environment and virtualisation management.
+
+Moteus manages its own dependencies well via Bazel, but it can still only be run on x86_64 Ubuntu.
+
+This container + script (./env) provides a way to run the build and test tools on other platforms (eg. my M1 Macbook).
+
+| OS | State |
+| --- | ----------- |
+| Linux | Untested - expected to work |
+| OSx | Working 👌 |
+| Windows | Untested - expected to work |
+
+## Setup Notes
+
+This approach has been developed using [docker desktop](https://www.docker.com/products/docker-desktop/)
+
+For OSx specifically, enabling the option "Use Rosetta for x86/amd64 emulation on Apple Silicon" should vastly improve performance.
+
+
+## Usage
+./tools/Docker/env
+
+#wenns nicht kompiliert wegen sandbox: 
+tools/bazel build --config=target --spawn_strategy=local --genrule_strategy=local //:target
+#sonst
+tools/bazel build --config=target //:target
+# jetzt nur noch die Datei in den Firmware Ordner Kopieren
+mkdir firmware
+cp -r bazel-bin/fw/moteus.elf firmware
+
+##
+Herkunft: 
+https://github.com/mawildoer/mjbots-moteus/tree/mawildoer/docker-rabbit-hole/tools/docker
+https://github.com/mjbots/moteus/issues/49
+https://discord.com/channels/633996205759791104/633996431530655744/1170830570511667411

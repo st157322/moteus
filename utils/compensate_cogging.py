@@ -63,9 +63,47 @@ async def read_data(args, s, speed=None):
         await s.command(b"d stop")
         await asyncio.sleep(2)
 
-        if any([not math.isfinite(x) for x in values]):
-            print(f'Compensation failed.  Ensure that PID values are set for smooth motion at speed={speed * output_scale}')
-            sys.exit(1)
+        # Detect and report non-finite samples with additional context so the
+        # user can debug why compensation measurements are failing.
+        non_finite = [i for i, x in enumerate(values) if not math.isfinite(x)]
+        if non_finite:
+            print(f'Compensation failed: {len(non_finite)} non-finite samples out of {len(values)}')
+            # Show the first few non-finite indices and nearby values to help
+            # diagnose whether the problem is transient or systemic.
+            print('First non-finite indices (up to 20):', non_finite[:20])
+            for idx in non_finite[:10]:
+                start = max(0, idx - 3)
+                end = min(len(values), idx + 4)
+                print(f'Nearby values for index {idx} ([{start}:{end}]):', values[start:end])
+
+            finite_vals = [x for x in values if math.isfinite(x)]
+            if finite_vals:
+                mean = sum(finite_vals) / len(finite_vals)
+                print(f'Finite samples: {len(finite_vals)}, min={min(finite_vals):.6g}, max={max(finite_vals):.6g}, mean={mean:.6g}')
+            else:
+                print('No finite samples present at all.')
+
+            # If the number of non-finite samples is small, attempt a safe
+            # interpolation (linear) to fill them so the compensation can
+            # proceed. This avoids failing for a few transient missing bins.
+            max_allowed = max(1, int(0.05 * len(values)))
+            if len(non_finite) <= max_allowed and finite_vals:
+                print(f'Filling {len(non_finite)} values by linear interpolation (<= {max_allowed} allowed)')
+                arr = numpy.array(values, dtype=numpy.float64)
+                idx = numpy.arange(len(arr))
+                good = numpy.isfinite(arr)
+                # For interp we need at least two good points; otherwise fall
+                # back to mean fill.
+                if good.sum() >= 2:
+                    arr[~good] = numpy.interp(idx[~good], idx[good], arr[good])
+                else:
+                    arr[~good] = mean
+                values = arr.tolist()
+                # continue on with the replaced values
+            else:
+                print(f'Ensure that PID values are set for smooth motion at speed={speed * output_scale}')
+                # Exit to preserve previous behavior; user can re-run after fixing.
+                sys.exit(1)
 
         if velocity < 0.0:
             result['reverse'] = values
